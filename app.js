@@ -91,29 +91,48 @@ function initializeMainPage() {
 // Fetch Ledger Summary for Main Page
 async function fetchPartySummary() {
     const tableBody = document.querySelector('#party-summary-table tbody');
+    const searchInput = document.getElementById('party-search');
+
     if (!tableBody) {
         console.error('Party summary table not found in the DOM.');
         return;
     }
 
     try {
-        const { data, error } = await supabaseClient.from('parties').select('*');
+        const { data: parties, error } = await supabaseClient.from('parties').select('*');
         if (error) throw error;
 
-        tableBody.innerHTML = ''; // Clear existing rows
+        let filteredParties = parties; // Initialize filtered parties
 
-        data.forEach((party) => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td><a href="ledger.html?party_id=${party.id}">${party.name}</a></td>
-                <td>${party.contact_no || 'N/A'}</td>
-            `;
-            tableBody.appendChild(row);
+        // Function to render parties in the table
+        function renderParties() {
+            tableBody.innerHTML = ''; // Clear existing rows
+            filteredParties.forEach((party) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><a href="ledger.html?party_id=${party.id}">${party.name}</a></td>
+                    <td>${party.contact_no || 'N/A'}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        }
+
+        // Wild search functionality
+        searchInput.addEventListener('input', () => {
+            const query = searchInput.value.toLowerCase();
+            filteredParties = parties.filter((party) =>
+                party.name.toLowerCase().includes(query)
+            );
+            renderParties();
         });
+
+        // Render all parties initially
+        renderParties();
     } catch (err) {
         console.error('Error fetching party summary:', err.message);
     }
 }
+
 
 /**
  * LEDGER PAGE LOGIC
@@ -128,17 +147,34 @@ function initializeLedgerPage() {
     }
 
     const urlParams = new URLSearchParams(window.location.search);
-    const partyName = urlParams.get('name');
+    const partyId = urlParams.get('party_id');
 
-    if (partyName) {
-        partyNameElement.textContent = `Ledger for ${partyName}`;
-        fetchPartyLedger(partyName);
+    if (partyId) {
+        fetchPartyDetails(partyId).then((party) => {
+            partyNameElement.textContent = `Ledger for ${party.name}`;
+        });
+        fetchPartyLedger(partyId);
+        initializeAddEntryForm(partyId);
     } else {
         partyNameElement.textContent = 'No Party Selected';
     }
 }
 
-// Fetch Party Ledger for Ledger Page
+async function fetchPartyDetails(partyId) {
+    try {
+        const { data: party, error } = await supabaseClient
+            .from('parties')
+            .select('name')
+            .eq('id', partyId)
+            .single();
+
+        if (error) throw error;
+        return party;
+    } catch (err) {
+        console.error('Error fetching party details:', err.message);
+    }
+}
+
 async function fetchPartyLedger(partyId) {
     try {
         const { data: entries, error } = await supabaseClient
@@ -155,45 +191,6 @@ async function fetchPartyLedger(partyId) {
     }
 }
 
-
-// Render Party Ledger on Ledger Page
-function renderPartyLedger(entries) {
-    const tableBody = document.querySelector('#party-ledger-table tbody');
-    if (!tableBody) {
-        console.error('Ledger table body not found in the DOM.');
-        return;
-    }
-
-    tableBody.innerHTML = ''; // Clear existing rows
-
-    let runningBalance = 0;
-
-    entries.forEach((entry) => {
-        const debit = entry.debit || 0;
-        const credit = entry.credit || 0;
-        runningBalance += credit - debit;
-
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>${formatDate(entry.date)}</td>
-            <td>${entry.particulars || 'N/A'}</td>
-            <td>
-                ${
-                    entry.photo_url
-                        ? `<img src="${entry.photo_url}" alt="Entry Image" style="width:50px; height:50px; object-fit:cover;" class="zoomable">`
-                        : 'No Image'
-                }
-            </td>
-            <td>${debit.toFixed(2)}</td>
-            <td>${credit.toFixed(2)}</td>
-            <td>${runningBalance.toFixed(2)}</td>
-            <td>${entry.entered_by || 'Unknown'}</td>
-        `;
-        tableBody.appendChild(row);
-    });
-
-    initializeLightbox(); // Reinitialize lightbox for zoomable images
-}
 function initializeAddEntryForm(partyId) {
     const addEntryForm = document.getElementById('add-entry-form');
     if (!addEntryForm) {
@@ -236,7 +233,7 @@ function initializeAddEntryForm(partyId) {
                 debit,
                 credit,
                 photo_url: photoURL,
-                entered_by: 'your-email@example.com', // Replace with actual user email
+                entered_by: 'user@example.com', // Replace with the logged-in user's email
             });
 
             if (error) throw error;
@@ -248,6 +245,48 @@ function initializeAddEntryForm(partyId) {
         }
     });
 }
+
+
+
+// Render Party Ledger on Ledger Page
+function renderPartyLedger(entries) {
+    const tableBody = document.querySelector('#party-ledger-table tbody');
+    if (!tableBody) {
+        console.error('Ledger table body not found in the DOM.');
+        return;
+    }
+
+    tableBody.innerHTML = ''; // Clear existing rows
+
+    let runningBalance = 0;
+
+    entries.forEach((entry) => {
+        const debit = entry.debit || 0;
+        const credit = entry.credit || 0;
+        runningBalance += credit - debit;
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${formatDate(entry.date)}</td>
+            <td>${entry.particulars || 'N/A'}</td>
+            <td>
+                ${
+                    entry.photo_url
+                        ? `<img src="${entry.photo_url}" alt="Entry Image" style="width:50px; height:50px; object-fit:cover;" class="zoomable">`
+                        : 'No Image'
+                }
+            </td>
+            <td>${debit.toFixed(2)}</td>
+            <td>${credit.toFixed(2)}</td>
+            <td>${runningBalance.toFixed(2)}</td>
+            <td>${entry.entered_by || 'Unknown'}</td>
+        `;
+        tableBody.appendChild(row);
+    });
+
+    initializeLightbox(); // Reinitialize lightbox for zoomable images
+}
+
 
 
 /**

@@ -30,6 +30,7 @@
 
     <main id="main-section" style="display: none;">
         <h2>Party Ledger Summary</h2>
+        <input type="text" id="party-search" placeholder="Search Party Name..." />
         <table id="party-summary-table">
             <thead>
                 <tr>
@@ -42,29 +43,7 @@
             <tbody></tbody>
         </table>
 
-        <h3>Add Entry</h3>
-        <form id="add-entry-form">
-            <label for="party-name">Party Name:</label>
-            <input list="party-names" id="party-name" placeholder="Select or create new" required>
-            <datalist id="party-names"></datalist>
 
-            <label for="date">Date:</label>
-            <input type="date" id="date" required>
-
-            <label for="particulars">Particulars:</label>
-            <input type="text" id="particulars" placeholder="Particulars" required>
-
-            <label for="photo">Photo:</label>
-            <input type="file" id="photo" accept="image/*">
-
-            <label for="debit">Debit:</label>
-            <input type="number" id="debit" min="0">
-
-            <label for="credit">Credit:</label>
-            <input type="number" id="credit" min="0">
-
-            <button type="submit">Add Entry</button>
-        </form>
     </main>
 
     <div id="lightbox" class="lightbox">
