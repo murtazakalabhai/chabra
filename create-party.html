@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Party</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <header>
+        <h1>Create Party</h1>
+        <nav>
+            <a href="index.html">Home</a>
+            <a href="ledger.html">Ledger</a>
+            <a href="create-party.html">Create Party</a>
+            <a href="#" id="logout-btn">Logout</a>
+        </nav>
+    </header>
+
+    <main>
+        <h2>Add New Party</h2>
+        <form id="create-party-form">
+            <label for="party-name">Party Name:</label>
+            <input type="text" id="party-name" placeholder="Enter Party Name" required>
+            <label for="contact-no">Contact No.:</label>
+            <input type="text" id="contact-no" placeholder="Enter Contact No." required>
+            <button type="submit">Create Party</button>
+        </form>
+    </main>
+</body>
+</html>
