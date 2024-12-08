@@ -89,35 +89,29 @@ function initializeMainPage() {
 }
 
 // Fetch Ledger Summary for Main Page
-async function fetchLedgerSummary() {
-    const tableBody = document.querySelector('#ledger-summary-table tbody');
+async function fetchPartySummary() {
+    const tableBody = document.querySelector('#party-summary-table tbody');
     if (!tableBody) {
-        console.error('Ledger table body not found in the DOM.');
+        console.error('Party summary table not found in the DOM.');
         return;
     }
 
     try {
-        const { data, error } = await supabaseClient.rpc('fetch_ledger_summary');
+        const { data, error } = await supabaseClient.from('parties').select('*');
         if (error) throw error;
 
         tableBody.innerHTML = ''; // Clear existing rows
 
         data.forEach((party) => {
-            const totalDebit = party.total_debit || 0;
-            const totalCredit = party.total_credit || 0;
-            const balance = totalCredit - totalDebit;
-
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td><a href="ledger.html?name=${encodeURIComponent(party.name)}">${party.name}</a></td>
+                <td><a href="ledger.html?party_id=${party.id}">${party.name}</a></td>
                 <td>${party.contact_no || 'N/A'}</td>
-                <td>${balance.toFixed(2)}</td>
-                <td><button onclick="openAddEntryModal('${party.name}')">Add Entry</button></td>
             `;
             tableBody.appendChild(row);
         });
     } catch (err) {
-        console.error('Error fetching ledger summary:', err.message);
+        console.error('Error fetching party summary:', err.message);
     }
 }
 
@@ -145,24 +139,25 @@ function initializeLedgerPage() {
 }
 
 // Fetch Party Ledger for Ledger Page
-async function fetchPartyLedger(partyName) {
+async function fetchPartyLedger(partyId) {
     try {
-        const { data, error } = await supabaseClient
+        const { data: entries, error } = await supabaseClient
             .from('entries')
             .select('*')
-            .eq('name', partyName)
+            .eq('party_id', partyId)
             .order('date', { ascending: true });
 
         if (error) throw error;
 
-        renderPartyLedger(data);
+        renderPartyLedger(entries);
     } catch (err) {
         console.error('Error fetching party ledger:', err.message);
     }
 }
 
+
 // Render Party Ledger on Ledger Page
-function renderPartyLedger(data) {
+function renderPartyLedger(entries) {
     const tableBody = document.querySelector('#party-ledger-table tbody');
     if (!tableBody) {
         console.error('Ledger table body not found in the DOM.');
@@ -173,7 +168,7 @@ function renderPartyLedger(data) {
 
     let runningBalance = 0;
 
-    data.forEach((entry) => {
+    entries.forEach((entry) => {
         const debit = entry.debit || 0;
         const credit = entry.credit || 0;
         runningBalance += credit - debit;
@@ -185,7 +180,7 @@ function renderPartyLedger(data) {
             <td>
                 ${
                     entry.photo_url
-                        ? `<img src="${entry.photo_url}" alt="Entry Image" style="width:50px; height:50px; object-fit:cover; cursor:pointer;" class="zoomable">`
+                        ? `<img src="${entry.photo_url}" alt="Entry Image" style="width:50px; height:50px; object-fit:cover;" class="zoomable">`
                         : 'No Image'
                 }
             </td>
@@ -197,9 +192,63 @@ function renderPartyLedger(data) {
         tableBody.appendChild(row);
     });
 
-    // Reinitialize Lightbox for Zoomable Images
-    initializeLightbox();
+    initializeLightbox(); // Reinitialize lightbox for zoomable images
 }
+function initializeAddEntryForm(partyId) {
+    const addEntryForm = document.getElementById('add-entry-form');
+    if (!addEntryForm) {
+        console.error('Add entry form not found on the page.');
+        return;
+    }
+
+    addEntryForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const date = document.getElementById('date').value;
+        const particulars = document.getElementById('particulars').value.trim();
+        const debit = parseFloat(document.getElementById('debit').value || 0);
+        const credit = parseFloat(document.getElementById('credit').value || 0);
+        const photoFile = document.getElementById('photo').files[0];
+
+        let photoURL = '';
+        if (photoFile) {
+            const uniqueFileName = `entry-${Date.now()}-${photoFile.name}`;
+            const { data, error } = await supabaseClient.storage
+                .from('photos')
+                .upload(uniqueFileName, photoFile);
+
+            if (error) {
+                alert('Failed to upload photo: ' + error.message);
+                return;
+            }
+
+            photoURL = supabaseClient.storage
+                .from('photos')
+                .getPublicUrl(uniqueFileName)
+                .data.publicUrl;
+        }
+
+        try {
+            const { error } = await supabaseClient.from('entries').insert({
+                party_id: partyId,
+                date,
+                particulars,
+                debit,
+                credit,
+                photo_url: photoURL,
+                entered_by: 'your-email@example.com', // Replace with actual user email
+            });
+
+            if (error) throw error;
+
+            alert('Entry added successfully!');
+            fetchPartyLedger(partyId); // Refresh the ledger
+        } catch (err) {
+            console.error('Error adding entry:', err.message);
+        }
+    });
+}
+
 
 /**
  * LIGHTBOX LOGIC
@@ -234,7 +283,6 @@ function initializeLightbox() {
 
 function initializeCreatePartyPage() {
     const createPartyForm = document.getElementById('create-party-form');
-
     if (!createPartyForm) {
         console.error('Create Party form not found on the page.');
         return;
@@ -243,8 +291,8 @@ function initializeCreatePartyPage() {
     createPartyForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const partyName = document.getElementById('party-name').value.trim();
-        const contactNo = document.getElementById('contact-no').value.trim();
+        const partyName = document.getElementById('party-name')?.value.trim();
+        const contactNo = document.getElementById('contact-no')?.value.trim();
 
         if (!partyName) {
             alert('Party Name is required.');
@@ -252,8 +300,9 @@ function initializeCreatePartyPage() {
         }
 
         try {
+            // Check if the party already exists
             const { data: existingParty, error: fetchError } = await supabaseClient
-                .from('entries')
+                .from('parties')
                 .select('name')
                 .eq('name', partyName);
 
@@ -264,7 +313,8 @@ function initializeCreatePartyPage() {
                 return;
             }
 
-            const { error: insertError } = await supabaseClient.from('entries').insert({
+            // Insert new party
+            const { error: insertError } = await supabaseClient.from('parties').insert({
                 name: partyName,
                 contact_no: contactNo,
             });
@@ -279,3 +329,4 @@ function initializeCreatePartyPage() {
         }
     });
 }
+
