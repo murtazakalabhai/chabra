@@ -16,40 +16,49 @@ function formatDate(dateString) {
 
 // DOMContentLoaded: Initialize on Page Load
 document.addEventListener('DOMContentLoaded', async () => {
-    // Check if the user is logged in
+    const authSection = document.getElementById('auth-section');
+    const mainSection = document.getElementById('main-section');
+    const loginButton = document.getElementById('login-btn');
+
+    // Check user session
     const { data: session } = await supabaseClient.auth.getSession();
 
     if (session?.session) {
         // User is logged in
-        document.getElementById('auth-section').style.display = 'none';
-        document.getElementById('main-section').style.display = 'block';
+        if (authSection) authSection.style.display = 'none';
+        if (mainSection) mainSection.style.display = 'block';
         fetchLedgerSummary(); // Load ledger data
     } else {
         // User is not logged in
-        document.getElementById('auth-section').style.display = 'block';
-        document.getElementById('main-section').style.display = 'none';
+        if (authSection) authSection.style.display = 'block';
+        if (mainSection) mainSection.style.display = 'none';
     }
-});
 
-// Login Functionality
-document.getElementById('login-btn').addEventListener('click', async () => {
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
+    // Add event listener to login button
+    if (loginButton) {
+        loginButton.addEventListener('click', async () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
 
-    const { data, error } = await supabaseClient.auth.signInWithPassword({
-        email,
-        password,
-    });
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email,
+                password,
+            });
 
-    if (error) {
-        alert('Login failed: ' + error.message);
+            if (error) {
+                alert('Login failed: ' + error.message);
+            } else {
+                alert('Login successful!');
+                if (authSection) authSection.style.display = 'none';
+                if (mainSection) mainSection.style.display = 'block';
+                fetchLedgerSummary(); // Load ledger data
+            }
+        });
     } else {
-        alert('Login successful!');
-        document.getElementById('auth-section').style.display = 'none';
-        document.getElementById('main-section').style.display = 'block';
-        fetchLedgerSummary(); // Load ledger data
+        console.error('Login button not found in the DOM.');
     }
 });
+
 
 // Logout Functionality
 document.getElementById('logout-btn').addEventListener('click', async () => {
