@@ -5,7 +5,8 @@ const supabaseClient = supabase.createClient(
 );
 
 
-// Utility Function to Format Date
+
+// Utility Function to Format Dates
 function formatDate(dateString) {
     const date = new Date(dateString);
     const day = String(date.getDate()).padStart(2, '0');
@@ -14,28 +15,45 @@ function formatDate(dateString) {
     return `${day}-${month}-${year}`;
 }
 
-// DOMContentLoaded: Initialize on Page Load
-document.addEventListener('DOMContentLoaded', async () => {
+// Initialize Page Based on Location
+document.addEventListener('DOMContentLoaded', () => {
+    const path = location.pathname;
+
+    if (path.includes('index.html') || path === '/') {
+        initializeMainPage();
+    } else if (path.includes('ledger.html')) {
+        initializeLedgerPage();
+    } else {
+        console.error('Unrecognized page. Ensure the correct script logic is applied.');
+    }
+});
+
+/** 
+ * MAIN PAGE LOGIC 
+ */
+function initializeMainPage() {
     const authSection = document.getElementById('auth-section');
     const mainSection = document.getElementById('main-section');
     const loginButton = document.getElementById('login-btn');
 
     if (!authSection || !mainSection || !loginButton) {
-        console.error('Required DOM elements not found.');
+        console.error('Required DOM elements not found on the main page.');
         return;
     }
 
-    const { data: session } = await supabaseClient.auth.getSession();
+    // Check user session
+    supabaseClient.auth.getSession().then(({ data: session }) => {
+        if (session?.session) {
+            authSection.style.display = 'none';
+            mainSection.style.display = 'block';
+            fetchLedgerSummary();
+        } else {
+            authSection.style.display = 'block';
+            mainSection.style.display = 'none';
+        }
+    });
 
-    if (session?.session) {
-        authSection.style.display = 'none';
-        mainSection.style.display = 'block';
-        fetchLedgerSummary();
-    } else {
-        authSection.style.display = 'block';
-        mainSection.style.display = 'none';
-    }
-
+    // Login Functionality
     loginButton.addEventListener('click', async () => {
         const email = document.getElementById('email').value;
         const password = document.getElementById('password').value;
@@ -54,21 +72,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             fetchLedgerSummary();
         }
     });
-});
 
+    // Logout Functionality
+    document.getElementById('logout-btn').addEventListener('click', async () => {
+        const { error } = await supabaseClient.auth.signOut();
+        if (error) {
+            alert('Logout failed: ' + error.message);
+        } else {
+            alert('Logged out successfully!');
+            location.reload();
+        }
+    });
+}
 
-// Logout Functionality
-document.getElementById('logout-btn').addEventListener('click', async () => {
-    const { error } = await supabaseClient.auth.signOut();
-    if (error) {
-        alert('Logout failed: ' + error.message);
-    } else {
-        alert('Logged out successfully!');
-        location.reload();
-    }
-});
-
-// Fetch Ledger Summary
+// Fetch Ledger Summary for Main Page
 async function fetchLedgerSummary() {
     const tableBody = document.querySelector('#ledger-summary-table tbody');
     if (!tableBody) {
@@ -78,7 +95,6 @@ async function fetchLedgerSummary() {
 
     try {
         const { data, error } = await supabaseClient.rpc('fetch_ledger_summary');
-
         if (error) throw error;
 
         tableBody.innerHTML = ''; // Clear existing rows
@@ -102,94 +118,30 @@ async function fetchLedgerSummary() {
     }
 }
 
+/**
+ * LEDGER PAGE LOGIC
+ */
+function initializeLedgerPage() {
+    const partyNameElement = document.getElementById('party-name');
+    const ledgerTableBody = document.querySelector('#party-ledger-table tbody');
 
-
-// Render Ledger Summary in the Main Page
-function renderLedgerSummary(data) {
-    const tableBody = document.querySelector('#ledger-summary-table tbody');
-    tableBody.innerHTML = ''; // Clear existing rows
-
-    data.forEach((party) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td><a href="ledger.html?name=${encodeURIComponent(party.name)}">${party.name}</a></td>
-            <td>${party.contact_no || 'N/A'}</td>
-            <td>${party.balance.toFixed(2)}</td>
-            <td><button onclick="openAddEntryModal('${party.name}')">Add Entry</button></td>
-        `;
-        tableBody.appendChild(row);
-    });
-}
-
-// Populate Party Names in the Datalist
-function populatePartyNames(summary) {
-    const partyNamesDatalist = document.getElementById('party-names');
-    if (partyNamesDatalist) {
-        partyNamesDatalist.innerHTML = ''; // Clear existing options
-        summary.forEach((party) => {
-            const option = document.createElement('option');
-            option.value = party.name;
-            partyNamesDatalist.appendChild(option);
-        });
-    }
-}
-
-// Add Entry
-document.getElementById('add-entry-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const session = await supabaseClient.auth.getSession();
-    if (!session?.data?.session) {
-        alert('You must be logged in to add an entry.');
+    if (!partyNameElement || !ledgerTableBody) {
+        console.error('Required DOM elements not found on the ledger page.');
         return;
     }
 
-    const userEmail = session.data.session.user.email;
-    const name = document.getElementById('party-name').value;
-    const date = document.getElementById('date').value;
-    const particulars = document.getElementById('particulars').value;
-    const debit = parseFloat(document.getElementById('debit').value || 0);
-    const credit = parseFloat(document.getElementById('credit').value || 0);
-    const photoFile = document.getElementById('photo').files[0];
+    const urlParams = new URLSearchParams(window.location.search);
+    const partyName = urlParams.get('name');
 
-    let photoURL = '';
-    if (photoFile) {
-        const fileName = `ledger-${Date.now()}-${photoFile.name}`;
-        const { data, error } = await supabaseClient.storage
-            .from('photos')
-            .upload(fileName, photoFile);
-        if (error) {
-            alert('Photo upload failed: ' + error.message);
-            return;
-        }
-        photoURL = supabaseClient.storage
-            .from('photos')
-            .getPublicUrl(fileName)
-            .data.publicUrl;
+    if (partyName) {
+        partyNameElement.textContent = `Ledger for ${partyName}`;
+        fetchPartyLedger(partyName);
+    } else {
+        partyNameElement.textContent = 'No Party Selected';
     }
+}
 
-    try {
-        const { error } = await supabaseClient.from('entries').insert({
-            name,
-            date,
-            particulars,
-            debit,
-            credit,
-            photo_url: photoURL,
-            entered_by: userEmail,
-        });
-
-        if (error) throw error;
-
-        alert('Entry added successfully!');
-        fetchLedgerSummary(); // Refresh the summary
-    } catch (err) {
-        console.error('Error adding entry:', err.message);
-        alert('Failed to add entry.');
-    }
-});
-
-// Fetch and Render Party Ledger
+// Fetch Party Ledger for Ledger Page
 async function fetchPartyLedger(partyName) {
     try {
         const { data, error } = await supabaseClient
@@ -203,37 +155,42 @@ async function fetchPartyLedger(partyName) {
         renderPartyLedger(data);
     } catch (err) {
         console.error('Error fetching party ledger:', err.message);
-        alert('Failed to fetch party ledger.');
     }
 }
 
-// Render Party Ledger Page
+// Render Party Ledger on Ledger Page
 function renderPartyLedger(data) {
     const tableBody = document.querySelector('#party-ledger-table tbody');
-    tableBody.innerHTML = '';
+    if (!tableBody) {
+        console.error('Ledger table body not found in the DOM.');
+        return;
+    }
+
+    tableBody.innerHTML = ''; // Clear existing rows
 
     let runningBalance = 0;
 
     data.forEach((entry) => {
-        runningBalance += (entry.credit || 0) - (entry.debit || 0);
+        const debit = entry.debit || 0;
+        const credit = entry.credit || 0;
+        runningBalance += credit - debit;
 
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${formatDate(entry.date)}</td>
             <td>${entry.particulars}</td>
-            <td><img src="${entry.photo_url}" class="zoomable" style="width:50px; cursor:pointer;" alt="Entry Image"></td>
-            <td>${entry.debit || 0}</td>
-            <td>${entry.credit || 0}</td>
+            <td>${debit.toFixed(2)}</td>
+            <td>${credit.toFixed(2)}</td>
             <td>${runningBalance.toFixed(2)}</td>
             <td>${entry.entered_by || 'Unknown'}</td>
         `;
         tableBody.appendChild(row);
     });
-
-    initializeLightbox(); // Reapply lightbox logic for images
 }
 
-// Lightbox Logic
+/**
+ * LIGHTBOX LOGIC
+ */
 function initializeLightbox() {
     const zoomableImages = document.querySelectorAll('.zoomable');
     zoomableImages.forEach((img) => {
