@@ -23,6 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeMainPage();
     } else if (path.includes('ledger.html')) {
         initializeLedgerPage();
+    } else if (path.includes('create-party.html')) {
+        initializeCreatePartyPage();
     } else {
         console.error('Unrecognized page. Ensure the correct script logic is applied.');
     }
@@ -214,6 +216,55 @@ function initializeLightbox() {
         if (e.target === lightbox) {
             lightbox.style.display = 'none';
             document.getElementById('lightbox-img').src = '';
+        }
+    });
+}
+
+
+function initializeCreatePartyPage() {
+    const createPartyForm = document.getElementById('create-party-form');
+
+    if (!createPartyForm) {
+        console.error('Create Party form not found on the page.');
+        return;
+    }
+
+    createPartyForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const partyName = document.getElementById('party-name').value.trim();
+        const contactNo = document.getElementById('contact-no').value.trim();
+
+        if (!partyName) {
+            alert('Party Name is required.');
+            return;
+        }
+
+        try {
+            const { data: existingParty, error: fetchError } = await supabaseClient
+                .from('entries')
+                .select('name')
+                .eq('name', partyName);
+
+            if (fetchError) throw fetchError;
+
+            if (existingParty && existingParty.length > 0) {
+                alert('A party with this name already exists. Please choose another name.');
+                return;
+            }
+
+            const { error: insertError } = await supabaseClient.from('entries').insert({
+                name: partyName,
+                contact_no: contactNo,
+            });
+
+            if (insertError) throw insertError;
+
+            alert('Party created successfully!');
+            location.href = 'index.html'; // Redirect to the main page
+        } catch (err) {
+            console.error('Error creating party:', err.message);
+            alert('Failed to create party. Please try again.');
         }
     });
 }
