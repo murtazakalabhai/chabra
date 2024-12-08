@@ -229,3 +229,23 @@ footer {
     color: white;
     margin-top: 20px;
 }
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+th, td {
+    padding: 10px;
+    text-align: center;
+    border: 1px solid #ccc;
+}
+th {
+    background-color: #4CAF50;
+    color: white;
+}
+img.zoomable {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+}
+img.zoomable:hover {
+    transform: scale(1.2);
+}

@@ -18,12 +18,13 @@ function formatDate(dateString) {
 // Initialize Page Based on Location
 document.addEventListener('DOMContentLoaded', () => {
     const path = location.pathname;
+   
 
     if (path.includes('index.html') || path === '/') {
         initializeMainPage();
-    } else if (path.includes('ledger.html')) {
+    } else if (path.includes('ledger.html') || path.includes('ledger')) {
         initializeLedgerPage();
-    } else if (path.includes('create-party.html')) {
+    } else if (path.includes('create-party.html') || path.includes('create-party')) {
         initializeCreatePartyPage();
     } else {
         console.error('Unrecognized page. Ensure the correct script logic is applied.');
@@ -180,7 +181,14 @@ function renderPartyLedger(data) {
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${formatDate(entry.date)}</td>
-            <td>${entry.particulars}</td>
+            <td>${entry.particulars || 'N/A'}</td>
+            <td>
+                ${
+                    entry.photo_url
+                        ? `<img src="${entry.photo_url}" alt="Entry Image" style="width:50px; height:50px; object-fit:cover; cursor:pointer;" class="zoomable">`
+                        : 'No Image'
+                }
+            </td>
             <td>${debit.toFixed(2)}</td>
             <td>${credit.toFixed(2)}</td>
             <td>${runningBalance.toFixed(2)}</td>
@@ -188,6 +196,9 @@ function renderPartyLedger(data) {
         `;
         tableBody.appendChild(row);
     });
+
+    // Reinitialize Lightbox for Zoomable Images
+    initializeLightbox();
 }
 
 /**
