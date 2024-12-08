@@ -245,7 +245,7 @@ function initializeAddEntryForm(partyId) {
                 debit,
                 credit,
                 photo_url: photoURL,
-                entered_by: '', // Replace with the logged-in user's email
+                entered_by: enteredBy, // Dynamically set the entered_by field
             });
 
             if (error) throw error;
@@ -275,7 +275,7 @@ function renderPartyLedger(entries) {
     entries.forEach((entry) => {
         const debit = entry.debit || 0;
         const credit = entry.credit || 0;
-        runningBalance += credit - debit;
+        runningBalance += debit- credit;
 
         const row = document.createElement('tr');
         row.innerHTML = `
