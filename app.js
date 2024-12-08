@@ -49,7 +49,7 @@ function initializeMainPage() {
         if (session?.session) {
             authSection.style.display = 'none';
             mainSection.style.display = 'block';
-            fetchLedgerSummary();
+            fetchPartySummary();
         } else {
             authSection.style.display = 'block';
             mainSection.style.display = 'none';
@@ -72,7 +72,7 @@ function initializeMainPage() {
             alert('Login successful!');
             authSection.style.display = 'none';
             mainSection.style.display = 'block';
-            fetchLedgerSummary();
+            fetchPartySummary();
         }
     });
 
