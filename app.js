@@ -65,11 +65,7 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
 // Fetch Ledger Summary
 async function fetchLedgerSummary() {
     try {
-        // Fetch unique party names and balances
-        const { data, error } = await supabaseClient
-            .from('entries')
-            .select('name, contact_no, SUM(debit) AS total_debit, SUM(credit) AS total_credit')
-            .group('name, contact_no');
+        const { data, error } = await supabaseClient.rpc('fetch_ledger_summary');
 
         if (error) throw error;
 
@@ -87,6 +83,7 @@ async function fetchLedgerSummary() {
         alert('Failed to fetch ledger summary.');
     }
 }
+
 
 // Render Ledger Summary in the Main Page
 function renderLedgerSummary(data) {
