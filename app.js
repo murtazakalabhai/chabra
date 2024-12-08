@@ -15,29 +15,64 @@ function formatDate(dateString) {
 // User Authentication
 document.addEventListener('DOMContentLoaded', () => {
     const loginButton = document.getElementById('login-btn');
-    if (!loginButton) {
-        console.error('Login button not found!');
-        return;
+    if (loginButton) {
+        loginButton.addEventListener('click', async () => {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email,
+                password,
+            });
+
+            if (error) {
+                alert('Login failed: ' + error.message);
+            } else {
+                alert('Login successful!');
+                document.getElementById('auth-section').style.display = 'none';
+                document.getElementById('main-section').style.display = 'block';
+                fetchLedgerSummary();
+            }
+        });
     }
 
-    loginButton.addEventListener('click', async () => {
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
+    const addEntryForm = document.getElementById('add-entry-form');
+    if (addEntryForm) {
+        addEntryForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
 
-        const { data, error } = await supabaseClient.auth.signInWithPassword({
-            email,
-            password,
+            const session = await supabaseClient.auth.getSession();
+            if (!session?.data?.session) {
+                alert('You must be logged in to add an entry.');
+                return;
+            }
+
+            const userEmail = session.data.session.user.email;
+            const name = document.getElementById('party-name').value;
+            const date = document.getElementById('date').value;
+            const particulars = document.getElementById('particulars').value;
+            const debit = parseFloat(document.getElementById('debit').value || 0);
+            const credit = parseFloat(document.getElementById('credit').value || 0);
+
+            try {
+                const { error } = await supabaseClient.from('entries').insert({
+                    name,
+                    date,
+                    particulars,
+                    debit,
+                    credit,
+                    entered_by: userEmail,
+                });
+
+                if (error) throw error;
+
+                alert('Entry added successfully!');
+                fetchLedgerSummary();
+            } catch (err) {
+                console.error('Error adding entry:', err.message);
+            }
         });
-
-        if (error) {
-            alert('Login failed: ' + error.message);
-        } else {
-            alert('Login successful!');
-            document.getElementById('auth-section').style.display = 'none';
-            document.getElementById('main-section').style.display = 'block';
-            fetchLedgerSummary();
-        }
-    });
+    }
 });
 
 
@@ -90,50 +125,7 @@ function renderLedgerSummary(data) {
 }
 
 
-// Add Entry
-document.getElementById('add-entry-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
 
-    const name = document.getElementById('party-name').value;
-    const date = document.getElementById('date').value;
-    const particulars = document.getElementById('particulars').value;
-    const debit = parseFloat(document.getElementById('debit').value || 0);
-    const credit = parseFloat(document.getElementById('credit').value || 0);
-    const photoFile = document.getElementById('photo').files[0];
-
-    let photoURL = '';
-    if (photoFile) {
-        const fileName = `ledger-${Date.now()}-${photoFile.name}`;
-        const { data, error } = await supabaseClient.storage
-            .from('photos')
-            .upload(fileName, photoFile);
-        if (error) {
-            alert('Photo upload failed: ' + error.message);
-            return;
-        }
-        photoURL = supabaseClient.storage
-            .from('photos')
-            .getPublicUrl(fileName)
-            .data.publicUrl;
-    }
-
-    const { error } = await supabaseClient.from('entries').insert({
-        name,
-        date,
-        particulars,
-        debit,
-        credit,
-        photo_url: photoURL,
-        entered_by: supabaseClient.auth.user().email,
-    });
-
-    if (error) {
-        alert('Failed to add entry: ' + error.message);
-    } else {
-        alert('Entry added successfully!');
-        fetchLedgerSummary();
-    }
-});
 
 // Fetch and Render Party Ledger
 async function fetchPartyLedger(partyName) {
