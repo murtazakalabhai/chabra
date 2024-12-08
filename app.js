@@ -4,7 +4,8 @@ const supabaseClient = supabase.createClient(
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtic2NuZ3B3bXZtdHN1eGZia2hxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzM2Mzk5NTAsImV4cCI6MjA0OTIxNTk1MH0.1D_jUKk2g88leiZqTrTr6tQMBvddX5dbqsr-BwuJpY0' // Replace with your Supabase anon key
 );
 
-// Utility Functions
+
+// Utility Function to Format Date
 function formatDate(dateString) {
     const date = new Date(dateString);
     const day = String(date.getDate()).padStart(2, '0');
@@ -12,69 +13,43 @@ function formatDate(dateString) {
     const year = date.getFullYear();
     return `${day}-${month}-${year}`;
 }
-// User Authentication
-document.addEventListener('DOMContentLoaded', () => {
-    const loginButton = document.getElementById('login-btn');
-    if (loginButton) {
-        loginButton.addEventListener('click', async () => {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
 
-            const { data, error } = await supabaseClient.auth.signInWithPassword({
-                email,
-                password,
-            });
+// DOMContentLoaded: Initialize on Page Load
+document.addEventListener('DOMContentLoaded', async () => {
+    // Check if the user is logged in
+    const { data: session } = await supabaseClient.auth.getSession();
 
-            if (error) {
-                alert('Login failed: ' + error.message);
-            } else {
-                alert('Login successful!');
-                document.getElementById('auth-section').style.display = 'none';
-                document.getElementById('main-section').style.display = 'block';
-                fetchLedgerSummary();
-            }
-        });
-    }
-
-    const addEntryForm = document.getElementById('add-entry-form');
-    if (addEntryForm) {
-        addEntryForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const session = await supabaseClient.auth.getSession();
-            if (!session?.data?.session) {
-                alert('You must be logged in to add an entry.');
-                return;
-            }
-
-            const userEmail = session.data.session.user.email;
-            const name = document.getElementById('party-name').value;
-            const date = document.getElementById('date').value;
-            const particulars = document.getElementById('particulars').value;
-            const debit = parseFloat(document.getElementById('debit').value || 0);
-            const credit = parseFloat(document.getElementById('credit').value || 0);
-
-            try {
-                const { error } = await supabaseClient.from('entries').insert({
-                    name,
-                    date,
-                    particulars,
-                    debit,
-                    credit,
-                    entered_by: userEmail,
-                });
-
-                if (error) throw error;
-
-                alert('Entry added successfully!');
-                fetchLedgerSummary();
-            } catch (err) {
-                console.error('Error adding entry:', err.message);
-            }
-        });
+    if (session?.session) {
+        // User is logged in
+        document.getElementById('auth-section').style.display = 'none';
+        document.getElementById('main-section').style.display = 'block';
+        fetchLedgerSummary(); // Load ledger data
+    } else {
+        // User is not logged in
+        document.getElementById('auth-section').style.display = 'block';
+        document.getElementById('main-section').style.display = 'none';
     }
 });
 
+// Login Functionality
+document.getElementById('login-btn').addEventListener('click', async () => {
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email,
+        password,
+    });
+
+    if (error) {
+        alert('Login failed: ' + error.message);
+    } else {
+        alert('Login successful!');
+        document.getElementById('auth-section').style.display = 'none';
+        document.getElementById('main-section').style.display = 'block';
+        fetchLedgerSummary(); // Load ledger data
+    }
+});
 
 // Logout Functionality
 document.getElementById('logout-btn').addEventListener('click', async () => {
@@ -87,21 +62,33 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
     }
 });
 
-
 // Fetch Ledger Summary
 async function fetchLedgerSummary() {
-    const { data, error } = await supabaseClient
-        .from('entries')
-        .select('name, contact_no, SUM(debit - credit) AS balance')
-        .group('name, contact_no');
+    try {
+        // Fetch unique party names and balances
+        const { data, error } = await supabaseClient
+            .from('entries')
+            .select('name, contact_no, SUM(debit) AS total_debit, SUM(credit) AS total_credit')
+            .group('name, contact_no');
 
-    if (error) {
-        console.error('Error fetching ledger summary:', error.message);
-        return;
+        if (error) throw error;
+
+        // Calculate the balance for each party
+        const summary = data.map((entry) => ({
+            name: entry.name,
+            contact_no: entry.contact_no,
+            balance: (entry.total_credit || 0) - (entry.total_debit || 0),
+        }));
+
+        renderLedgerSummary(summary); // Render the summary
+        populatePartyNames(summary); // Populate the datalist for party selection
+    } catch (err) {
+        console.error('Error fetching ledger summary:', err.message);
+        alert('Failed to fetch ledger summary.');
     }
-    renderLedgerSummary(data);
 }
 
+// Render Ledger Summary in the Main Page
 function renderLedgerSummary(data) {
     const tableBody = document.querySelector('#ledger-summary-table tbody');
     tableBody.innerHTML = ''; // Clear existing rows
@@ -116,32 +103,95 @@ function renderLedgerSummary(data) {
         `;
         tableBody.appendChild(row);
     });
-
-    // Populate Party Names in Add Entry Form
-    const partyNames = document.getElementById('party-names');
-    partyNames.innerHTML = data
-        .map((party) => `<option value="${party.name}">`)
-        .join('');
 }
 
+// Populate Party Names in the Datalist
+function populatePartyNames(summary) {
+    const partyNamesDatalist = document.getElementById('party-names');
+    if (partyNamesDatalist) {
+        partyNamesDatalist.innerHTML = ''; // Clear existing options
+        summary.forEach((party) => {
+            const option = document.createElement('option');
+            option.value = party.name;
+            partyNamesDatalist.appendChild(option);
+        });
+    }
+}
 
+// Add Entry
+document.getElementById('add-entry-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
 
+    const session = await supabaseClient.auth.getSession();
+    if (!session?.data?.session) {
+        alert('You must be logged in to add an entry.');
+        return;
+    }
+
+    const userEmail = session.data.session.user.email;
+    const name = document.getElementById('party-name').value;
+    const date = document.getElementById('date').value;
+    const particulars = document.getElementById('particulars').value;
+    const debit = parseFloat(document.getElementById('debit').value || 0);
+    const credit = parseFloat(document.getElementById('credit').value || 0);
+    const photoFile = document.getElementById('photo').files[0];
+
+    let photoURL = '';
+    if (photoFile) {
+        const fileName = `ledger-${Date.now()}-${photoFile.name}`;
+        const { data, error } = await supabaseClient.storage
+            .from('photos')
+            .upload(fileName, photoFile);
+        if (error) {
+            alert('Photo upload failed: ' + error.message);
+            return;
+        }
+        photoURL = supabaseClient.storage
+            .from('photos')
+            .getPublicUrl(fileName)
+            .data.publicUrl;
+    }
+
+    try {
+        const { error } = await supabaseClient.from('entries').insert({
+            name,
+            date,
+            particulars,
+            debit,
+            credit,
+            photo_url: photoURL,
+            entered_by: userEmail,
+        });
+
+        if (error) throw error;
+
+        alert('Entry added successfully!');
+        fetchLedgerSummary(); // Refresh the summary
+    } catch (err) {
+        console.error('Error adding entry:', err.message);
+        alert('Failed to add entry.');
+    }
+});
 
 // Fetch and Render Party Ledger
 async function fetchPartyLedger(partyName) {
-    const { data, error } = await supabaseClient
-        .from('entries')
-        .select('*')
-        .eq('name', partyName)
-        .order('date', { ascending: true });
+    try {
+        const { data, error } = await supabaseClient
+            .from('entries')
+            .select('*')
+            .eq('name', partyName)
+            .order('date', { ascending: true });
 
-    if (error) {
-        console.error('Error fetching party ledger:', error.message);
-        return;
+        if (error) throw error;
+
+        renderPartyLedger(data);
+    } catch (err) {
+        console.error('Error fetching party ledger:', err.message);
+        alert('Failed to fetch party ledger.');
     }
-    renderPartyLedger(data);
 }
 
+// Render Party Ledger Page
 function renderPartyLedger(data) {
     const tableBody = document.querySelector('#party-ledger-table tbody');
     tableBody.innerHTML = '';
@@ -166,36 +216,6 @@ function renderPartyLedger(data) {
 
     initializeLightbox(); // Reapply lightbox logic for images
 }
-
-// Create Party
-document.getElementById('create-party-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const name = document.getElementById('party-name').value;
-    const contactNo = document.getElementById('contact-no').value;
-
-    const { data, error } = await supabaseClient
-        .from('entries')
-        .select('name')
-        .eq('name', name);
-
-    if (data && data.length > 0) {
-        alert('Party name already exists. Please choose another name.');
-        return;
-    }
-
-    const { error: insertError } = await supabaseClient.from('entries').insert({
-        name,
-        contact_no: contactNo,
-    });
-
-    if (insertError) {
-        alert('Failed to create party: ' + insertError.message);
-    } else {
-        alert('Party created successfully!');
-        location.href = 'index.html'; // Redirect to main page
-    }
-});
 
 // Lightbox Logic
 function initializeLightbox() {
