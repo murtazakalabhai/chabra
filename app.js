@@ -99,7 +99,8 @@ async function fetchPartySummary() {
     }
 
     try {
-        const { data: parties, error } = await supabaseClient.from('parties').select('*');
+        //const { data: parties, error } = await supabaseClient.from('parties').select('*');
+        const { data: parties, error } = await supabaseClient.rpc('fetch_party_balances');
         if (error) throw error;
 
         let filteredParties = parties; // Initialize filtered parties
@@ -112,6 +113,7 @@ async function fetchPartySummary() {
                 row.innerHTML = `
                     <td><a href="ledger.html?party_id=${party.id}">${party.name}</a></td>
                     <td>${party.contact_no || 'N/A'}</td>
+                    <td>${party.balance ? party.balance.toFixed(2) : '0.00'}</td>
                 `;
                 tableBody.appendChild(row);
             });
@@ -120,8 +122,10 @@ async function fetchPartySummary() {
         // Wild search functionality
         searchInput.addEventListener('input', () => {
             const query = searchInput.value.toLowerCase();
-            filteredParties = parties.filter((party) =>
-                party.name.toLowerCase().includes(query)
+            filteredParties = parties.filter(
+                (party) =>
+                    party.name.toLowerCase().includes(query) ||
+                    (party.contact_no && party.contact_no.toLowerCase().includes(query))
             );
             renderParties();
         });
@@ -201,6 +205,14 @@ function initializeAddEntryForm(partyId) {
     addEntryForm.addEventListener('submit', async (e) => {
         e.preventDefault();
 
+        // Fetch the currently logged-in user's email
+        const { data: session, error: sessionError } = await supabaseClient.auth.getSession();
+        if (sessionError || !session?.session?.user) {
+            alert('Unable to fetch user session. Please log in again.');
+            return;
+        }
+
+        const enteredBy = session.session.user.email;
         const date = document.getElementById('date').value;
         const particulars = document.getElementById('particulars').value.trim();
         const debit = parseFloat(document.getElementById('debit').value || 0);
@@ -233,7 +245,7 @@ function initializeAddEntryForm(partyId) {
                 debit,
                 credit,
                 photo_url: photoURL,
-                entered_by: 'user@example.com', // Replace with the logged-in user's email
+                entered_by: '', // Replace with the logged-in user's email
             });
 
             if (error) throw error;
