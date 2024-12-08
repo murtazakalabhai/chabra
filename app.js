@@ -20,43 +20,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     const mainSection = document.getElementById('main-section');
     const loginButton = document.getElementById('login-btn');
 
-    // Check user session
+    if (!authSection || !mainSection || !loginButton) {
+        console.error('Required DOM elements not found.');
+        return;
+    }
+
     const { data: session } = await supabaseClient.auth.getSession();
 
     if (session?.session) {
-        // User is logged in
-        if (authSection) authSection.style.display = 'none';
-        if (mainSection) mainSection.style.display = 'block';
-        fetchLedgerSummary(); // Load ledger data
+        authSection.style.display = 'none';
+        mainSection.style.display = 'block';
+        fetchLedgerSummary();
     } else {
-        // User is not logged in
-        if (authSection) authSection.style.display = 'block';
-        if (mainSection) mainSection.style.display = 'none';
+        authSection.style.display = 'block';
+        mainSection.style.display = 'none';
     }
 
-    // Add event listener to login button
-    if (loginButton) {
-        loginButton.addEventListener('click', async () => {
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
+    loginButton.addEventListener('click', async () => {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
 
-            const { data, error } = await supabaseClient.auth.signInWithPassword({
-                email,
-                password,
-            });
-
-            if (error) {
-                alert('Login failed: ' + error.message);
-            } else {
-                alert('Login successful!');
-                if (authSection) authSection.style.display = 'none';
-                if (mainSection) mainSection.style.display = 'block';
-                fetchLedgerSummary(); // Load ledger data
-            }
+        const { data, error } = await supabaseClient.auth.signInWithPassword({
+            email,
+            password,
         });
-    } else {
-        console.error('Login button not found in the DOM.');
-    }
+
+        if (error) {
+            alert('Login failed: ' + error.message);
+        } else {
+            alert('Login successful!');
+            authSection.style.display = 'none';
+            mainSection.style.display = 'block';
+            fetchLedgerSummary();
+        }
+    });
 });
 
 
@@ -73,23 +70,31 @@ document.getElementById('logout-btn').addEventListener('click', async () => {
 
 // Fetch Ledger Summary
 async function fetchLedgerSummary() {
+    const tableBody = document.querySelector('#ledger-summary-table tbody');
+    if (!tableBody) {
+        console.error('Ledger table body not found in the DOM.');
+        return;
+    }
+
     try {
         const { data, error } = await supabaseClient.rpc('fetch_ledger_summary');
 
         if (error) throw error;
 
-        // Calculate the balance for each party
-        const summary = data.map((entry) => ({
-            name: entry.name,
-            contact_no: entry.contact_no,
-            balance: (entry.total_credit || 0) - (entry.total_debit || 0),
-        }));
+        tableBody.innerHTML = ''; // Clear existing rows
 
-        renderLedgerSummary(summary); // Render the summary
-        populatePartyNames(summary); // Populate the datalist for party selection
+        data.forEach((party) => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><a href="ledger.html?name=${encodeURIComponent(party.name)}">${party.name}</a></td>
+                <td>${party.contact_no || 'N/A'}</td>
+                <td>${party.balance.toFixed(2)}</td>
+                <td><button onclick="openAddEntryModal('${party.name}')">Add Entry</button></td>
+            `;
+            tableBody.appendChild(row);
+        });
     } catch (err) {
         console.error('Error fetching ledger summary:', err.message);
-        alert('Failed to fetch ledger summary.');
     }
 }
 
