@@ -84,11 +84,15 @@ async function fetchLedgerSummary() {
         tableBody.innerHTML = ''; // Clear existing rows
 
         data.forEach((party) => {
+            const totalDebit = party.total_debit || 0;
+            const totalCredit = party.total_credit || 0;
+            const balance = totalCredit - totalDebit;
+
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td><a href="ledger.html?name=${encodeURIComponent(party.name)}">${party.name}</a></td>
                 <td>${party.contact_no || 'N/A'}</td>
-                <td>${party.balance.toFixed(2)}</td>
+                <td>${balance.toFixed(2)}</td>
                 <td><button onclick="openAddEntryModal('${party.name}')">Add Entry</button></td>
             `;
             tableBody.appendChild(row);
@@ -97,6 +101,7 @@ async function fetchLedgerSummary() {
         console.error('Error fetching ledger summary:', err.message);
     }
 }
+
 
 
 // Render Ledger Summary in the Main Page
