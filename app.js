@@ -599,7 +599,7 @@ function resetAddEntryForm() {
 }
 
 // Attach the reset function to the Cancel Edit button
-document.getElementById('cancel-edit-btn').addEventListener('click', resetAddEntryForm);
+
 
 
 
