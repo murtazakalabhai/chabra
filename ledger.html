@@ -22,6 +22,16 @@
 
     <main>
         <h2 id="party-name"></h2>
+        <div id="ledger-controls">
+            <label for="from-date">From:</label>
+            <input type="date" id="from-date">
+        
+            <label for="to-date">To:</label>
+            <input type="date" id="to-date">
+        
+            <button id="filter-ledger-btn">Filter</button>
+            <button id="print-ledger-btn">Print</button>
+        </div>
         <table id="party-ledger-table">
             <thead>
                 <tr>
@@ -32,7 +42,10 @@
                     <th>Credit</th>
                     <th>Balance</th>
                     <th>Entered By</th>
+                    <th>Edit-Delete</th>
                 </tr>
+
+                
             </thead>
             <tbody></tbody>
         </table>
@@ -48,7 +61,8 @@
             <input type="number" id="debit" min="0">
             <label for="credit">Credit:</label>
             <input type="number" id="credit" min="0">
-            <button type="submit">Add Entry</button>
+            <button type="submit" id="save-entry-btn">Add Entry</button>
+            <button type="button" id="cancel-edit-btn" style="display:none;">Cancel Edit</button>
         </form>
     </main>
 
