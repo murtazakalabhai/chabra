@@ -697,3 +697,17 @@ document.getElementById('filter-ledger-btn').addEventListener('click', () => {
 });
 
 document.getElementById('print-ledger-btn').addEventListener('click', printLedger);
+
+
+document.getElementById('photo').addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const currentPhoto = document.getElementById('current-photo');
+            currentPhoto.src = reader.result;
+            currentPhoto.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
+});

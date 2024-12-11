@@ -249,3 +249,10 @@ img.zoomable {
 img.zoomable:hover {
     transform: scale(1.2);
 }
+input[type="file"] {
+    display: block;
+    margin: 10px 0;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
