@@ -699,23 +699,33 @@ document.getElementById('filter-ledger-btn').addEventListener('click', () => {
 document.getElementById('print-ledger-btn').addEventListener('click', printLedger);
 
 
+let isHandlingClick = false; // Flag to prevent recursive clicks
+
 document.getElementById('photo').addEventListener('click', (e) => {
-    e.preventDefault(); // Prevent default behavior
+    if (isHandlingClick) return; // Prevent multiple prompts
+    isHandlingClick = true;
+
+    e.preventDefault(); // Prevent default file input behavior
 
     // Prompt the user for their preference
     const useCamera = confirm('Would you like to take a photo using your camera?');
     const photoInput = document.getElementById('photo');
 
     if (useCamera) {
-        // Add the `capture` attribute dynamically for camera
+        // Set the `capture` attribute dynamically for camera
         photoInput.setAttribute('capture', 'environment');
     } else {
-        // Remove the `capture` attribute to allow gallery selection
+        // Remove the `capture` attribute for gallery selection
         photoInput.removeAttribute('capture');
     }
 
     // Trigger the file picker dialog
     photoInput.click();
+
+    // Allow future interactions after the file picker closes
+    setTimeout(() => {
+        isHandlingClick = false;
+    }, 500); // Delay to ensure click event has finished
 });
 
 // Image Preview
@@ -731,6 +741,7 @@ document.getElementById('photo').addEventListener('change', (event) => {
         reader.readAsDataURL(file);
     }
 });
+
 
 
 
