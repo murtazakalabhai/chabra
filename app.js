@@ -699,15 +699,18 @@ document.getElementById('filter-ledger-btn').addEventListener('click', () => {
 document.getElementById('print-ledger-btn').addEventListener('click', printLedger);
 
 
-document.getElementById('photo').addEventListener('change', (event) => {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = () => {
-            const currentPhoto = document.getElementById('current-photo');
-            currentPhoto.src = reader.result;
-            currentPhoto.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
+document.getElementById('photo').addEventListener('click', (e) => {
+    e.preventDefault(); // Prevent default click behavior
+
+    const useCamera = confirm('Would you like to take a photo using your camera?');
+    const photoInput = document.getElementById('photo');
+
+    if (useCamera) {
+        photoInput.setAttribute('capture', 'environment'); // Set camera as default
+    } else {
+        photoInput.removeAttribute('capture'); // Allow gallery
     }
+
+    photoInput.click(); // Open the file picker
 });
+
