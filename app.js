@@ -700,17 +700,37 @@ document.getElementById('print-ledger-btn').addEventListener('click', printLedge
 
 
 document.getElementById('photo').addEventListener('click', (e) => {
-    e.preventDefault(); // Prevent default click behavior
+    e.preventDefault(); // Prevent default behavior
 
+    // Prompt the user for their preference
     const useCamera = confirm('Would you like to take a photo using your camera?');
     const photoInput = document.getElementById('photo');
 
     if (useCamera) {
-        photoInput.setAttribute('capture', 'environment'); // Set camera as default
+        // Add the `capture` attribute dynamically for camera
+        photoInput.setAttribute('capture', 'environment');
     } else {
-        photoInput.removeAttribute('capture'); // Allow gallery
+        // Remove the `capture` attribute to allow gallery selection
+        photoInput.removeAttribute('capture');
     }
 
-    photoInput.click(); // Open the file picker
+    // Trigger the file picker dialog
+    photoInput.click();
 });
+
+// Image Preview
+document.getElementById('photo').addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = () => {
+            const currentPhoto = document.getElementById('current-photo');
+            currentPhoto.src = reader.result;
+            currentPhoto.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+    }
+});
+
+
 
